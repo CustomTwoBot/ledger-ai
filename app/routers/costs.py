@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
+from sqlalchemy import cast, Date, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -15,6 +15,9 @@ from app.schemas import (
     CostLogResponse,
     CostSummaryResponse,
     ModelBreakdown,
+    RecentCostEntry,
+    TimeseriesPoint,
+    TimeseriesResponse,
 )
 from app.config import settings
 
@@ -28,6 +31,59 @@ def _period_start(period: str) -> Optional[datetime]:
     if period == "monthly":
         return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return None  # "all"
+
+
+@router.get("/timeseries", response_model=TimeseriesResponse)
+def cost_timeseries(
+    period: Literal["daily"] = Query("daily"),
+    db: Session = Depends(get_db),
+):
+    since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29)
+
+    rows = (
+        db.query(
+            cast(Cost.timestamp, Date).label("day"),
+            func.sum(Cost.cost_usd).label("total_cost"),
+        )
+        .filter(Cost.timestamp >= since)
+        .group_by("day")
+        .order_by("day")
+        .all()
+    )
+
+    costs_by_date = {str(r.day): float(r.total_cost) for r in rows}
+    today = datetime.utcnow().date()
+    points = [
+        TimeseriesPoint(
+            date=str(today - timedelta(days=i)),
+            cost_usd=costs_by_date.get(str(today - timedelta(days=i)), 0.0),
+        )
+        for i in range(29, -1, -1)
+    ]
+
+    return TimeseriesResponse(period=period, points=points)
+
+
+@router.get("/recent", response_model=List[RecentCostEntry])
+def recent_costs(
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(Cost)
+        .order_by(Cost.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        RecentCostEntry(
+            agent_id=r.agent_id,
+            model=r.model,
+            cost_usd=float(r.cost_usd),
+            timestamp=r.timestamp,
+        )
+        for r in rows
+    ]
 
 
 @router.get("/summary", response_model=CostSummaryResponse)
@@ -80,12 +136,25 @@ def cost_summary(
     by_agent: Optional[List[AgentBreakdown]] = None
     if not agent_id:
         agent_rows = (
-            base.with_entities(
+            base.outerjoin(Budget, Budget.agent_id == Cost.agent_id)
+            .with_entities(
                 Cost.agent_id,
                 func.count(Cost.id).label("call_count"),
                 func.sum(Cost.cost_usd).label("total_cost"),
+                Budget.daily_limit_usd,
+                Budget.monthly_limit_usd,
+                Budget.daily_spent_usd,
+                Budget.monthly_spent_usd,
+                Budget.is_hard_stop_enabled,
             )
-            .group_by(Cost.agent_id)
+            .group_by(
+                Cost.agent_id,
+                Budget.daily_limit_usd,
+                Budget.monthly_limit_usd,
+                Budget.daily_spent_usd,
+                Budget.monthly_spent_usd,
+                Budget.is_hard_stop_enabled,
+            )
             .order_by(func.sum(Cost.cost_usd).desc())
             .all()
         )
@@ -94,6 +163,15 @@ def cost_summary(
                 agent_id=r.agent_id,
                 call_count=r.call_count,
                 total_cost_usd=float(r.total_cost),
+                budget_limit=float(
+                    r.monthly_limit_usd if period == "monthly" else r.daily_limit_usd
+                ) if (r.monthly_limit_usd if period == "monthly" else r.daily_limit_usd) is not None else None,
+                daily_spent=float(r.daily_spent_usd) if r.daily_spent_usd is not None else None,
+                hard_stop=bool(r.is_hard_stop_enabled) and (
+                    (r.daily_limit_usd is not None and float(r.daily_spent_usd or 0) >= float(r.daily_limit_usd))
+                    or
+                    (r.monthly_limit_usd is not None and float(r.monthly_spent_usd or 0) >= float(r.monthly_limit_usd))
+                ),
             )
             for r in agent_rows
         ]

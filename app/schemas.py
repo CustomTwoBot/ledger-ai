@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Literal, Optional
 from pydantic import BaseModel
 
@@ -30,6 +31,9 @@ class AgentBreakdown(BaseModel):
     agent_id: str
     call_count: int
     total_cost_usd: float
+    budget_limit: Optional[float]
+    daily_spent: Optional[float]
+    hard_stop: bool
 
 
 class CostSummaryResponse(BaseModel):
@@ -39,6 +43,23 @@ class CostSummaryResponse(BaseModel):
     total_calls: int
     by_model: List[ModelBreakdown]
     by_agent: Optional[List[AgentBreakdown]]
+
+
+class TimeseriesPoint(BaseModel):
+    date: str
+    cost_usd: float
+
+
+class TimeseriesResponse(BaseModel):
+    period: str
+    points: List[TimeseriesPoint]
+
+
+class RecentCostEntry(BaseModel):
+    agent_id: str
+    model: str
+    cost_usd: float
+    timestamp: datetime
 
 
 class BudgetSetRequest(BaseModel):
