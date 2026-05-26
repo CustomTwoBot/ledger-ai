@@ -82,3 +82,4 @@ class BudgetCheckResponse(BaseModel):
     allowed: bool
     reason: Optional[str]
     daily_remaining_usd: Optional[float]
+    warning: Optional[Literal["near_limit", "hard_stop"]] = None

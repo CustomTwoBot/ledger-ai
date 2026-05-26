@@ -52,55 +52,65 @@ def set_budget(payload: BudgetSetRequest, db: Session = Depends(get_db)):
 def check_budget(agent_id: str, db: Session = Depends(get_db)):
     budget = db.query(Budget).filter(Budget.agent_id == agent_id).first()
 
-    # No budget configured → always allow
     if budget is None:
         return BudgetCheckResponse(allowed=True, reason=None, daily_remaining_usd=None)
 
-    # Hard stop is disabled → report remaining but never block
-    if not budget.is_hard_stop_enabled:
-        daily_remaining = _daily_remaining(budget)
-        return BudgetCheckResponse(allowed=True, reason=None, daily_remaining_usd=daily_remaining)
-
     now = datetime.utcnow()
 
-    # Daily limit check
-    if budget.daily_limit_usd is not None:
-        daily_spent = float(budget.daily_spent_usd)
-        daily_limit = float(budget.daily_limit_usd)
-        # Spent resets at midnight; if the budget was last updated on a prior day it's already reset
-        if budget.updated_at and budget.updated_at.date() < now.date():
-            daily_spent = 0.0
-        if daily_spent >= daily_limit:
-            return BudgetCheckResponse(
-                allowed=False,
-                reason="Daily limit exceeded",
-                daily_remaining_usd=0.0,
-            )
+    # Compute effective spent values, zeroing out if the period has rolled over
+    daily_spent = float(budget.daily_spent_usd)
+    if budget.updated_at and budget.updated_at.date() < now.date():
+        daily_spent = 0.0
 
-    # Monthly limit check
-    if budget.monthly_limit_usd is not None:
-        monthly_spent = float(budget.monthly_spent_usd)
-        monthly_limit = float(budget.monthly_limit_usd)
-        if budget.updated_at and (
-            budget.updated_at.year,
-            budget.updated_at.month,
-        ) < (now.year, now.month):
-            monthly_spent = 0.0
-        if monthly_spent >= monthly_limit:
-            return BudgetCheckResponse(
-                allowed=False,
-                reason="Monthly limit exceeded",
-                daily_remaining_usd=_daily_remaining(budget),
-            )
+    monthly_spent = float(budget.monthly_spent_usd)
+    if budget.updated_at and (budget.updated_at.year, budget.updated_at.month) < (now.year, now.month):
+        monthly_spent = 0.0
 
-    return BudgetCheckResponse(
-        allowed=True,
-        reason=None,
-        daily_remaining_usd=_daily_remaining(budget),
+    daily_remaining = (
+        max(0.0, float(budget.daily_limit_usd) - daily_spent)
+        if budget.daily_limit_usd is not None else None
     )
 
+    warning = _worst_warning(
+        _spend_warning(daily_spent, budget.daily_limit_usd),
+        _spend_warning(monthly_spent, budget.monthly_limit_usd),
+    )
 
-def _daily_remaining(budget: Budget) -> Optional[float]:
-    if budget.daily_limit_usd is None:
+    if not budget.is_hard_stop_enabled:
+        return BudgetCheckResponse(allowed=True, reason=None, daily_remaining_usd=daily_remaining, warning=warning)
+
+    if budget.daily_limit_usd is not None and daily_spent >= float(budget.daily_limit_usd):
+        return BudgetCheckResponse(
+            allowed=False,
+            reason="Daily limit exceeded",
+            daily_remaining_usd=0.0,
+            warning="hard_stop",
+        )
+
+    if budget.monthly_limit_usd is not None and monthly_spent >= float(budget.monthly_limit_usd):
+        return BudgetCheckResponse(
+            allowed=False,
+            reason="Monthly limit exceeded",
+            daily_remaining_usd=daily_remaining,
+            warning="hard_stop",
+        )
+
+    return BudgetCheckResponse(allowed=True, reason=None, daily_remaining_usd=daily_remaining, warning=warning)
+
+
+def _spend_warning(spent: float, limit: Optional[float]) -> Optional[str]:
+    if limit is None or limit <= 0:
         return None
-    return max(0.0, float(budget.daily_limit_usd) - float(budget.daily_spent_usd))
+    ratio = spent / float(limit)
+    if ratio >= 1.0:
+        return "hard_stop"
+    if ratio >= 0.8:
+        return "near_limit"
+    return None
+
+
+_WARNING_RANK: dict[Optional[str], int] = {None: 0, "near_limit": 1, "hard_stop": 2}
+
+
+def _worst_warning(*warnings: Optional[str]) -> Optional[str]:
+    return max(warnings, key=lambda w: _WARNING_RANK.get(w, 0))

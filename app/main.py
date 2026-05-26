@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.database import Base, engine
 from app.routers import costs, budgets
@@ -22,3 +23,8 @@ app.include_router(budgets.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/dashboard")
+def dashboard():
+    return FileResponse("frontend/Dashboard.html")

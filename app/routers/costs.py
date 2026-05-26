@@ -36,9 +36,10 @@ def _period_start(period: str) -> Optional[datetime]:
 @router.get("/timeseries", response_model=TimeseriesResponse)
 def cost_timeseries(
     period: Literal["daily"] = Query("daily"),
+    days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29)
+    since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
 
     rows = (
         db.query(
@@ -58,7 +59,7 @@ def cost_timeseries(
             date=str(today - timedelta(days=i)),
             cost_usd=costs_by_date.get(str(today - timedelta(days=i)), 0.0),
         )
-        for i in range(29, -1, -1)
+        for i in range(days - 1, -1, -1)
     ]
 
     return TimeseriesResponse(period=period, points=points)
