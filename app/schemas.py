@@ -1,15 +1,15 @@
 from datetime import datetime
 from typing import List, Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CostLogRequest(BaseModel):
-    agent_id: str
-    provider: str
-    model: str
+    agent_id: str = Field(..., max_length=128)
+    provider: str = Field(..., max_length=64)
+    model: str = Field(..., max_length=128)
     input_tokens: int
     output_tokens: int
-    request_id: str
+    request_id: str = Field(..., max_length=256)
 
 
 class CostLogResponse(BaseModel):
@@ -19,8 +19,8 @@ class CostLogResponse(BaseModel):
 
 
 class ModelBreakdown(BaseModel):
-    model: str
-    provider: str
+    model: str = Field(..., max_length=128)
+    provider: str = Field(..., max_length=64)
     call_count: int
     total_input_tokens: int
     total_output_tokens: int
@@ -28,7 +28,7 @@ class ModelBreakdown(BaseModel):
 
 
 class AgentBreakdown(BaseModel):
-    agent_id: str
+    agent_id: str = Field(..., max_length=128)
     call_count: int
     total_cost_usd: float
     budget_limit: Optional[float]
@@ -37,7 +37,7 @@ class AgentBreakdown(BaseModel):
 
 
 class CostSummaryResponse(BaseModel):
-    agent_id: Optional[str]
+    agent_id: Optional[str] = Field(None, max_length=128)
     period: str
     total_cost_usd: float
     total_calls: int
@@ -56,21 +56,21 @@ class TimeseriesResponse(BaseModel):
 
 
 class RecentCostEntry(BaseModel):
-    agent_id: str
-    model: str
+    agent_id: str = Field(..., max_length=128)
+    model: str = Field(..., max_length=128)
     cost_usd: float
     timestamp: datetime
 
 
 class BudgetSetRequest(BaseModel):
-    agent_id: str
+    agent_id: str = Field(..., max_length=128)
     daily_limit_usd: Optional[float] = None
     monthly_limit_usd: Optional[float] = None
     is_hard_stop_enabled: bool = False
 
 
 class BudgetSetResponse(BaseModel):
-    agent_id: str
+    agent_id: str = Field(..., max_length=128)
     daily_limit_usd: Optional[float]
     monthly_limit_usd: Optional[float]
     daily_spent_usd: float
@@ -86,12 +86,12 @@ class BudgetCheckResponse(BaseModel):
 
 
 class CreateKeyRequest(BaseModel):
-    user_id: str
+    user_id: str = Field(..., max_length=128)
 
 
 class CreateKeyResponse(BaseModel):
     key: str
-    user_id: str
+    user_id: str = Field(..., max_length=128)
     created_at: datetime
 
 
