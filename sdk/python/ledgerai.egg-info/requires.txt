@@ -1,0 +1,11 @@
+httpx>=0.24
+
+[all]
+anthropic>=0.30
+openai>=1.0
+
+[anthropic]
+anthropic>=0.30
+
+[openai]
+openai>=1.0

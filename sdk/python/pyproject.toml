@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgerai"
+version = "0.1.0"
+description = "Budget-aware wrapper for Anthropic and OpenAI LLM clients"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.30"]
+openai = ["openai>=1.0"]
+all = ["anthropic>=0.30", "openai>=1.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ledgerai*"]
