@@ -39,11 +39,11 @@ class _Chat:
 class LedgerOpenAI:
     """OpenAI client with automatic budget gating and cost logging."""
 
-    def __init__(self, *args, ledger_url: str, agent_id: str, **kwargs) -> None:
+    def __init__(self, *args, ledger_url: str, agent_id: str, api_key: str, **kwargs) -> None:
         import openai
 
         self._client = openai.OpenAI(*args, **kwargs)
-        tracker = CostTracker(ledger_url, agent_id)
+        tracker = CostTracker(ledger_url, agent_id, api_key)
         self.chat = _Chat(self._client.chat, tracker)
 
     def __getattr__(self, name):

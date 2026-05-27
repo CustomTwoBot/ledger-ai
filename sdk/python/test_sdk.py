@@ -14,16 +14,17 @@ from ledgerai import BudgetExceededError, LedgerAnthropic
 
 LEDGER_URL = "http://127.0.0.1:8000"
 AGENT_ID = f"pytest-{uuid.uuid4().hex[:8]}"
+API_KEY = "REDACTED"
 
 
 @pytest.fixture(scope="module")
 def client():
-    return LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, mock=True)
+    return LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, api_key=API_KEY, mock=True)
 
 
 @pytest.fixture(scope="module")
 def api():
-    return httpx.Client(base_url=LEDGER_URL, timeout=10.0)
+    return httpx.Client(base_url=LEDGER_URL, headers={"X-API-Key": API_KEY}, timeout=10.0)
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def test_budget_check_blocked_raises(monkeypatch):
     from ledgerai import _tracker as tracker_mod
     monkeypatch.setattr(tracker_mod.httpx.Client, "get", lambda self, url, **kw: fake_get(url, **kw))
 
-    blocked_client = LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, mock=True)
+    blocked_client = LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, api_key=API_KEY, mock=True)
     with pytest.raises(BudgetExceededError) as exc_info:
         blocked_client.messages.create(
             model="claude-haiku-4-5",
@@ -82,7 +83,7 @@ def test_messages_create_returns_mock_response(client):
 def test_cost_log_recorded(api):
     """After a mock call, POST /api/v1/costs/log has recorded a cost entry."""
     # Trigger a call so there's definitely a log entry for this agent.
-    c = LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, mock=True)
+    c = LedgerAnthropic(ledger_url=LEDGER_URL, agent_id=AGENT_ID, api_key=API_KEY, mock=True)
     c.messages.create(
         model="claude-haiku-4-5",
         max_tokens=10,

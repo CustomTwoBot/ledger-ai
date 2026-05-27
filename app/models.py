@@ -8,6 +8,15 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
 
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    key = Column(String, primary_key=True, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
 class AlertType(str, enum.Enum):
     approaching_limit = "approaching_limit"
     hard_stop = "hard_stop"

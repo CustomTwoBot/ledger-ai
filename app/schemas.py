@@ -83,3 +83,13 @@ class BudgetCheckResponse(BaseModel):
     reason: Optional[str]
     daily_remaining_usd: Optional[float]
     warning: Optional[Literal["near_limit", "hard_stop"]] = None
+
+
+class CreateKeyRequest(BaseModel):
+    user_id: str
+
+
+class CreateKeyResponse(BaseModel):
+    key: str
+    user_id: str
+    created_at: datetime

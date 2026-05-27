@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+from app.auth import limiter, require_api_key
 from app.database import get_db
 from app.models import Budget
 from app.schemas import BudgetCheckResponse, BudgetSetRequest, BudgetSetResponse
@@ -13,7 +14,8 @@ router = APIRouter(prefix="/api/v1/budgets", tags=["budgets"])
 
 
 @router.post("/set", response_model=BudgetSetResponse, status_code=status.HTTP_200_OK)
-def set_budget(payload: BudgetSetRequest, db: Session = Depends(get_db)):
+@limiter.limit("100/minute")
+def set_budget(request: Request, payload: BudgetSetRequest, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
     budget = (
         db.query(Budget)
         .filter(Budget.agent_id == payload.agent_id)
@@ -49,7 +51,8 @@ def set_budget(payload: BudgetSetRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/check", response_model=BudgetCheckResponse)
-def check_budget(agent_id: str, db: Session = Depends(get_db)):
+@limiter.limit("100/minute")
+def check_budget(request: Request, agent_id: str, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
     budget = db.query(Budget).filter(Budget.agent_id == agent_id).first()
 
     if budget is None:

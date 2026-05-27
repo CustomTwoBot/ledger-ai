@@ -8,10 +8,10 @@ from .exceptions import BudgetExceededError
 
 
 class CostTracker:
-    def __init__(self, ledger_url: str, agent_id: str) -> None:
+    def __init__(self, ledger_url: str, agent_id: str, api_key: str) -> None:
         self._base = ledger_url.rstrip("/")
         self.agent_id = agent_id
-        self._http = httpx.Client(timeout=10.0)
+        self._http = httpx.Client(headers={"X-API-Key": api_key}, timeout=10.0)
 
     def check_budget(self) -> None:
         resp = self._http.get(

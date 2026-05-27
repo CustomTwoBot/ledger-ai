@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import cast, Date, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app.auth import limiter, require_api_key
 from app.database import get_db
 from app.models import Alert, AlertType, Budget, Cost
 from app.pricing import compute_cost
@@ -34,10 +35,13 @@ def _period_start(period: str) -> Optional[datetime]:
 
 
 @router.get("/timeseries", response_model=TimeseriesResponse)
+@limiter.limit("100/minute")
 def cost_timeseries(
+    request: Request,
     period: Literal["daily"] = Query("daily"),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
+    _: object = Depends(require_api_key),
 ):
     since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
 
@@ -66,9 +70,12 @@ def cost_timeseries(
 
 
 @router.get("/recent", response_model=List[RecentCostEntry])
+@limiter.limit("100/minute")
 def recent_costs(
+    request: Request,
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    _: object = Depends(require_api_key),
 ):
     rows = (
         db.query(Cost)
@@ -88,10 +95,13 @@ def recent_costs(
 
 
 @router.get("/summary", response_model=CostSummaryResponse)
+@limiter.limit("100/minute")
 def cost_summary(
+    request: Request,
     agent_id: Optional[str] = Query(None),
     period: Literal["daily", "monthly", "all"] = Query("daily"),
     db: Session = Depends(get_db),
+    _: object = Depends(require_api_key),
 ):
     since = _period_start(period)
 
@@ -265,7 +275,8 @@ def _maybe_create_alert(
 
 
 @router.post("/log", response_model=CostLogResponse, status_code=status.HTTP_201_CREATED)
-def log_cost(payload: CostLogRequest, db: Session = Depends(get_db)):
+@limiter.limit("100/minute")
+def log_cost(request: Request, payload: CostLogRequest, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
     # Idempotency: return existing result if request_id already logged
     existing = db.query(Cost).filter(Cost.request_id == payload.request_id).first()
     if existing:

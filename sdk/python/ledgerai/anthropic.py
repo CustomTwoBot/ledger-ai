@@ -54,11 +54,11 @@ class _Messages:
 class LedgerAnthropic:
     """Anthropic client with automatic budget gating and cost logging."""
 
-    def __init__(self, *args, ledger_url: str, agent_id: str, mock: bool = False, **kwargs) -> None:
+    def __init__(self, *args, ledger_url: str, agent_id: str, api_key: str, mock: bool = False, **kwargs) -> None:
         import anthropic
 
         self._client = anthropic.Anthropic(*args, **kwargs)
-        tracker = CostTracker(ledger_url, agent_id)
+        tracker = CostTracker(ledger_url, agent_id, api_key)
         self.messages = _Messages(self._client.messages, tracker, mock)
 
     def __getattr__(self, name):
