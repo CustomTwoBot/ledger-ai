@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CostLogRequest(BaseModel):
@@ -99,3 +99,20 @@ class DashboardStatsResponse(BaseModel):
     summary: CostSummaryResponse
     timeseries: TimeseriesResponse
     recent: List[RecentCostEntry]
+
+
+class SignupRequest(BaseModel):
+    email: EmailStr
+
+
+class SignupResponse(BaseModel):
+    api_key: str
+    email: str
+
+
+class MeResponse(BaseModel):
+    key: str
+    email: Optional[str]
+    user_id: str
+    created_at: datetime
+    is_active: bool
