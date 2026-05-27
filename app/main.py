@@ -9,6 +9,7 @@ from app.auth import limiter
 from app.database import Base, engine
 from app.routers import costs, budgets
 from app.routers import auth as auth_router
+from app.routers import dashboard as dashboard_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -28,6 +29,7 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(costs.router)
 app.include_router(budgets.router)
+app.include_router(dashboard_router.router)
 
 
 @app.get("/health")

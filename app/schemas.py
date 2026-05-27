@@ -93,3 +93,9 @@ class CreateKeyResponse(BaseModel):
     key: str
     user_id: str
     created_at: datetime
+
+
+class DashboardStatsResponse(BaseModel):
+    summary: CostSummaryResponse
+    timeseries: TimeseriesResponse
+    recent: List[RecentCostEntry]
