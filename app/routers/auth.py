@@ -1,10 +1,11 @@
 import secrets
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from app.auth import require_api_key
+from app.auth import limiter, require_api_key
 from app.database import get_db
 from app.models import ApiKey
 from app.schemas import (
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/hour", key_func=get_remote_address)
+def signup(request: Request, payload: SignupRequest, db: Session = Depends(get_db)):
     existing = db.query(ApiKey).filter(ApiKey.email == payload.email).first()
     if existing:
         raise HTTPException(
@@ -50,7 +52,13 @@ def me(api_key: ApiKey = Depends(require_api_key)):
 
 
 @router.post("/create-key", response_model=CreateKeyResponse, status_code=status.HTTP_201_CREATED)
-def create_api_key(payload: CreateKeyRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/hour", key_func=get_remote_address)
+def create_api_key(
+    request: Request,
+    payload: CreateKeyRequest,
+    db: Session = Depends(get_db),
+    _: ApiKey = Depends(require_api_key),
+):
     key = secrets.token_hex(32)
     row = ApiKey(key=key, user_id=payload.user_id, created_at=datetime.utcnow())
     db.add(row)

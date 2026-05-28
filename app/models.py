@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
@@ -36,13 +36,16 @@ class Cost(Base):
     cost_usd = Column(Numeric(10, 6), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     request_id = Column(String, unique=True, nullable=False, index=True)
+    owner_key = Column(String, nullable=True, index=True)
 
 
 class Budget(Base):
     __tablename__ = "budgets"
+    __table_args__ = (UniqueConstraint("agent_id", "owner_key", name="uq_budget_agent_owner"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    agent_id = Column(String, unique=True, nullable=False, index=True)
+    agent_id = Column(String, nullable=False, index=True)
+    owner_key = Column(String, nullable=True, index=True)
     daily_limit_usd = Column(Numeric(10, 2), nullable=True)
     monthly_limit_usd = Column(Numeric(10, 2), nullable=True)
     daily_spent_usd = Column(Numeric(10, 2), nullable=False, default=0)
@@ -56,6 +59,7 @@ class Alert(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agent_id = Column(String, nullable=False, index=True)
+    owner_key = Column(String, nullable=True, index=True)
     alert_type = Column(Enum(AlertType), nullable=False)
     threshold_pct = Column(Integer, nullable=True)
     message = Column(Text, nullable=True)

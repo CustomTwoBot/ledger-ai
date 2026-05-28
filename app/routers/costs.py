@@ -2,13 +2,13 @@ from datetime import datetime, timedelta
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import cast, Date, func
+from sqlalchemy import and_, cast, Date, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.auth import limiter, require_api_key
 from app.database import get_db
-from app.models import Alert, AlertType, Budget, Cost
+from app.models import Alert, AlertType, ApiKey, Budget, Cost
 from app.pricing import compute_cost
 from app.schemas import (
     AgentBreakdown,
@@ -41,7 +41,7 @@ def cost_timeseries(
     period: Literal["daily"] = Query("daily"),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    _: object = Depends(require_api_key),
+    api_key: ApiKey = Depends(require_api_key),
 ):
     since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
 
@@ -50,7 +50,7 @@ def cost_timeseries(
             cast(Cost.timestamp, Date).label("day"),
             func.sum(Cost.cost_usd).label("total_cost"),
         )
-        .filter(Cost.timestamp >= since)
+        .filter(Cost.owner_key == api_key.key, Cost.timestamp >= since)
         .group_by("day")
         .order_by("day")
         .all()
@@ -75,10 +75,11 @@ def recent_costs(
     request: Request,
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: object = Depends(require_api_key),
+    api_key: ApiKey = Depends(require_api_key),
 ):
     rows = (
         db.query(Cost)
+        .filter(Cost.owner_key == api_key.key)
         .order_by(Cost.timestamp.desc())
         .limit(limit)
         .all()
@@ -101,23 +102,21 @@ def cost_summary(
     agent_id: Optional[str] = Query(None),
     period: Literal["daily", "monthly", "all"] = Query("daily"),
     db: Session = Depends(get_db),
-    _: object = Depends(require_api_key),
+    api_key: ApiKey = Depends(require_api_key),
 ):
     since = _period_start(period)
 
-    base = db.query(Cost)
+    base = db.query(Cost).filter(Cost.owner_key == api_key.key)
     if agent_id:
         base = base.filter(Cost.agent_id == agent_id)
     if since:
         base = base.filter(Cost.timestamp >= since)
 
-    # Overall totals
     totals = base.with_entities(
         func.coalesce(func.sum(Cost.cost_usd), 0).label("total_cost"),
         func.count(Cost.id).label("total_calls"),
     ).one()
 
-    # Breakdown by model
     model_rows = (
         base.with_entities(
             Cost.model,
@@ -143,11 +142,13 @@ def cost_summary(
         for r in model_rows
     ]
 
-    # Breakdown by agent (only when not filtered to a single agent)
     by_agent: Optional[List[AgentBreakdown]] = None
     if not agent_id:
         agent_rows = (
-            base.outerjoin(Budget, Budget.agent_id == Cost.agent_id)
+            base.outerjoin(
+                Budget,
+                and_(Budget.agent_id == Cost.agent_id, Budget.owner_key == api_key.key),
+            )
             .with_entities(
                 Cost.agent_id,
                 func.count(Cost.id).label("call_count"),
@@ -198,7 +199,6 @@ def cost_summary(
 
 
 def _reset_periods_if_needed(budget: Budget, now: datetime) -> None:
-    """Zero out daily/monthly spent when the calendar period rolls over."""
     if budget.updated_at is None:
         return
     if budget.updated_at.date() < now.date():
@@ -212,8 +212,8 @@ def _maybe_create_alert(
     budget: Budget,
     agent_id: str,
     now: datetime,
+    owner_key: str,
 ) -> None:
-    """Insert alert rows when thresholds are crossed, rate-limited to once per hour."""
     one_hour_ago = now - timedelta(hours=1)
 
     def already_alerted(alert_type: AlertType) -> bool:
@@ -221,6 +221,7 @@ def _maybe_create_alert(
             db.query(Alert)
             .filter(
                 Alert.agent_id == agent_id,
+                Alert.owner_key == owner_key,
                 Alert.alert_type == alert_type,
                 Alert.sent_at >= one_hour_ago,
             )
@@ -228,7 +229,6 @@ def _maybe_create_alert(
             is not None
         )
 
-    # Hard-stop alert
     daily_exceeded = (
         budget.daily_limit_usd is not None
         and float(budget.daily_spent_usd) >= float(budget.daily_limit_usd)
@@ -242,14 +242,14 @@ def _maybe_create_alert(
         period = "daily" if daily_exceeded else "monthly"
         db.add(Alert(
             agent_id=agent_id,
+            owner_key=owner_key,
             alert_type=AlertType.hard_stop,
             threshold_pct=100,
             message=f"Agent {agent_id!r} has hit its {period} budget limit.",
             sent_at=now,
         ))
-        return  # no need to also fire approaching_limit
+        return
 
-    # Approaching-limit alert
     threshold = settings.alert_threshold_pct / 100
     daily_approaching = (
         budget.daily_limit_usd is not None
@@ -264,6 +264,7 @@ def _maybe_create_alert(
         period = "daily" if daily_approaching else "monthly"
         db.add(Alert(
             agent_id=agent_id,
+            owner_key=owner_key,
             alert_type=AlertType.approaching_limit,
             threshold_pct=settings.alert_threshold_pct,
             message=(
@@ -276,11 +277,23 @@ def _maybe_create_alert(
 
 @router.post("/log", response_model=CostLogResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("100/minute")
-def log_cost(request: Request, payload: CostLogRequest, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
-    # Idempotency: return existing result if request_id already logged
-    existing = db.query(Cost).filter(Cost.request_id == payload.request_id).first()
+def log_cost(
+    request: Request,
+    payload: CostLogRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_api_key),
+):
+    existing = (
+        db.query(Cost)
+        .filter(Cost.request_id == payload.request_id, Cost.owner_key == api_key.key)
+        .first()
+    )
     if existing:
-        budget = db.query(Budget).filter(Budget.agent_id == payload.agent_id).first()
+        budget = (
+            db.query(Budget)
+            .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+            .first()
+        )
         return _build_log_response(float(existing.cost_usd), budget)
 
     try:
@@ -299,13 +312,13 @@ def log_cost(request: Request, payload: CostLogRequest, db: Session = Depends(ge
         cost_usd=cost_usd,
         timestamp=now,
         request_id=payload.request_id,
+        owner_key=api_key.key,
     )
     db.add(cost_row)
 
-    # Lock the budget row for atomic update
     budget = (
         db.query(Budget)
-        .filter(Budget.agent_id == payload.agent_id)
+        .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
         .with_for_update()
         .first()
     )
@@ -315,15 +328,22 @@ def log_cost(request: Request, payload: CostLogRequest, db: Session = Depends(ge
         budget.daily_spent_usd = float(budget.daily_spent_usd) + cost_usd
         budget.monthly_spent_usd = float(budget.monthly_spent_usd) + cost_usd
         budget.updated_at = now
-        _maybe_create_alert(db, budget, payload.agent_id, now)
+        _maybe_create_alert(db, budget, payload.agent_id, now, api_key.key)
 
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        # Race condition: another request won with the same request_id
-        existing = db.query(Cost).filter(Cost.request_id == payload.request_id).first()
-        budget = db.query(Budget).filter(Budget.agent_id == payload.agent_id).first()
+        existing = (
+            db.query(Cost)
+            .filter(Cost.request_id == payload.request_id, Cost.owner_key == api_key.key)
+            .first()
+        )
+        budget = (
+            db.query(Budget)
+            .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+            .first()
+        )
         return _build_log_response(float(existing.cost_usd), budget)
 
     return _build_log_response(cost_usd, budget)

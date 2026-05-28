@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import limiter, require_api_key
 from app.database import get_db
-from app.models import Budget
+from app.models import ApiKey, Budget
 from app.schemas import BudgetCheckResponse, BudgetSetRequest, BudgetSetResponse
 
 router = APIRouter(prefix="/api/v1/budgets", tags=["budgets"])
@@ -15,10 +15,15 @@ router = APIRouter(prefix="/api/v1/budgets", tags=["budgets"])
 
 @router.post("/set", response_model=BudgetSetResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("100/minute")
-def set_budget(request: Request, payload: BudgetSetRequest, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
+def set_budget(
+    request: Request,
+    payload: BudgetSetRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_api_key),
+):
     budget = (
         db.query(Budget)
-        .filter(Budget.agent_id == payload.agent_id)
+        .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
         .with_for_update()
         .first()
     )
@@ -26,6 +31,7 @@ def set_budget(request: Request, payload: BudgetSetRequest, db: Session = Depend
         budget = Budget(
             id=uuid.uuid4(),
             agent_id=payload.agent_id,
+            owner_key=api_key.key,
             daily_spent_usd=0,
             monthly_spent_usd=0,
             updated_at=datetime.utcnow(),
@@ -52,15 +58,23 @@ def set_budget(request: Request, payload: BudgetSetRequest, db: Session = Depend
 
 @router.get("/check", response_model=BudgetCheckResponse)
 @limiter.limit("100/minute")
-def check_budget(request: Request, agent_id: str, db: Session = Depends(get_db), _: object = Depends(require_api_key)):
-    budget = db.query(Budget).filter(Budget.agent_id == agent_id).first()
+def check_budget(
+    request: Request,
+    agent_id: str,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_api_key),
+):
+    budget = (
+        db.query(Budget)
+        .filter(Budget.agent_id == agent_id, Budget.owner_key == api_key.key)
+        .first()
+    )
 
     if budget is None:
         return BudgetCheckResponse(allowed=True, reason=None, daily_remaining_usd=None)
 
     now = datetime.utcnow()
 
-    # Compute effective spent values, zeroing out if the period has rolled over
     daily_spent = float(budget.daily_spent_usd)
     if budget.updated_at and budget.updated_at.date() < now.date():
         daily_spent = 0.0
