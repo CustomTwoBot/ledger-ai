@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — LedgerAI</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1e1e1e;
+      --text: #e8e8e8;
+      --muted: #666666;
+      --accent: #00d4aa;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --font-sans: 'Inter', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.3px;
+    }
+
+    .nav-logo {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #000;
+      font-family: var(--font-mono);
+    }
+
+    .nav-back {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .nav-back:hover { color: var(--text); }
+
+    /* LAYOUT */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 64px 32px 96px;
+    }
+
+    /* HEADER */
+    .header {
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 212, 170, 0.08);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-family: var(--font-mono);
+    }
+
+    .header-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    .header-meta {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    /* SECTIONS */
+    section {
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    p {
+      color: #b0b0b0;
+      margin-bottom: 12px;
+    }
+
+    ul {
+      list-style: none;
+      margin-bottom: 12px;
+    }
+
+    ul li {
+      color: #b0b0b0;
+      padding: 6px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    ul li::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    /* DATA TABLE */
+    .data-table {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-row:last-child { border-bottom: none; }
+
+    .data-label {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      background: rgba(0, 212, 170, 0.04);
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+    }
+
+    .data-value {
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #b0b0b0;
+      display: flex;
+      align-items: center;
+    }
+
+    /* NOT COLLECTED BOX */
+    .not-collected {
+      background: rgba(255, 80, 80, 0.04);
+      border: 1px solid rgba(255, 80, 80, 0.15);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .not-collected-icon {
+      font-size: 12px;
+      color: #ff5050;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .not-collected p {
+      margin: 0;
+      font-size: 13px;
+      color: #999;
+    }
+
+    /* CONTACT CARD */
+    .contact-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .contact-info p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .contact-info p:first-child {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .contact-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 212, 170, 0.08);
+      border: 1px solid rgba(0, 212, 170, 0.25);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      padding: 8px 14px;
+      border-radius: 6px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .contact-link:hover {
+      background: rgba(0, 212, 170, 0.15);
+    }
+
+    /* FOOTER */
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: gap;
+      gap: 12px;
+    }
+
+    .footer-text {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .footer-link {
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-link:hover { color: var(--text); }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .container { padding: 40px 20px 64px; }
+      nav { padding: 14px 20px; }
+      h1 { font-size: 24px; }
+      .data-row { grid-template-columns: 1fr; }
+      .data-label { border-right: none; border-bottom: 1px solid var(--border); }
+      .contact-card { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/dashboard" class="nav-brand">
+      <div class="nav-logo">L</div>
+      LedgerAI
+    </a>
+    <a href="/dashboard" class="nav-back">← Back to dashboard</a>
+  </nav>
+
+  <div class="container">
+
+    <div class="header">
+      <div class="header-badge">Legal</div>
+      <h1>Privacy Policy</h1>
+      <p class="header-meta">Last updated: May 27, 2026 &nbsp;·&nbsp; Effective immediately</p>
+    </div>
+
+    <section>
+      <h2>Overview</h2>
+      <p>LedgerAI is a developer tool for tracking and controlling LLM API costs. We collect the minimum data necessary to operate the service. We do not sell your data. We do not share it with third parties except as required to run the service.</p>
+    </section>
+
+    <section>
+      <h2>What we collect</h2>
+      <div class="data-table">
+        <div class="data-row">
+          <div class="data-label">email</div>
+          <div class="data-value">Used to identify your account and deliver your API key. Nothing else.</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">api_key</div>
+          <div class="data-value">A randomly generated token that authenticates your SDK requests.</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">agent_id</div>
+          <div class="data-value">A label you choose to identify which agent made a call. We never inspect its contents.</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">token counts</div>
+          <div class="data-value">Input and output token counts per LLM call — used to calculate cost.</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">model / provider</div>
+          <div class="data-value">Which model was called (e.g. claude-haiku-4-5, gpt-4o).</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">timestamp</div>
+          <div class="data-value">When the call was made — used for trend charts and daily resets.</div>
+        </div>
+      </div>
+
+      <div class="not-collected">
+        <div class="not-collected-icon">✕</div>
+        <p>We do <strong style="color: #e8e8e8;">not</strong> collect: the content of your prompts or responses, passwords, payment information, IP addresses, or any data beyond what is listed above.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>How we use it</h2>
+      <ul>
+        <li>Authenticate your SDK requests via API key</li>
+        <li>Calculate and display your LLM spending on the dashboard</li>
+        <li>Enforce budget limits and trigger alerts you configure</li>
+        <li>Generate cost trends and summaries for your agents</li>
+      </ul>
+      <p>We do not use your data for advertising, profiling, or any purpose other than operating LedgerAI.</p>
+    </section>
+
+    <section>
+      <h2>Where it's stored</h2>
+      <ul>
+        <li>PostgreSQL database hosted by <a href="https://railway.app/legal/privacy" target="_blank">Railway</a> (US West region)</li>
+        <li>Data is encrypted at rest and in transit (HTTPS/TLS)</li>
+        <li>No data is stored on your local machine by LedgerAI</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How long we keep it</h2>
+      <ul>
+        <li>Your account data is retained while your account is active</li>
+        <li>Cost logs are retained for 90 days by default</li>
+        <li>You can request full deletion at any time — see contact below</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Third parties</h2>
+      <ul>
+        <li><a href="https://railway.app/legal/privacy" target="_blank">Railway</a> — hosting and database infrastructure</li>
+      </ul>
+      <p>We do not sell, rent, or share your data with any other third party.</p>
+    </section>
+
+    <section>
+      <h2>Your rights</h2>
+      <ul>
+        <li>Request a copy of all data we hold about you</li>
+        <li>Request correction of inaccurate data</li>
+        <li>Request deletion of your account and all associated data</li>
+        <li>GDPR users: you have the right to data portability and to lodge a complaint with your local supervisory authority</li>
+      </ul>
+      <p>To exercise any of these rights, email us at the address below. We respond within 30 days.</p>
+    </section>
+
+    <section>
+      <h2>Changes to this policy</h2>
+      <p>If we make material changes, we'll update the "Last updated" date at the top of this page. Continued use of LedgerAI after changes constitutes acceptance of the updated policy.</p>
+    </section>
+
+    <section>
+      <h2>Contact</h2>
+      <div class="contact-card">
+        <div class="contact-info">
+          <p>Questions about this policy?</p>
+          <p>We'll respond within 30 days.</p>
+        </div>
+        <a href="mailto:devmanoj975@gmail.com" class="contact-link">
+          devmanoj975@gmail.com
+        </a>
+      </div>
+    </section>
+
+    <footer>
+      <span class="footer-text">© 2026 LedgerAI</span>
+      <a href="/dashboard" class="footer-link">← Back to dashboard</a>
+    </footer>
+
+  </div>
+
+</body>
+</html>
