@@ -75,3 +75,8 @@ def dashboard():
 @app.get("/privacy")
 def privacy():
     return FileResponse("frontend/privacy.html")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots():
+    return FileResponse("frontend/robots.txt")
