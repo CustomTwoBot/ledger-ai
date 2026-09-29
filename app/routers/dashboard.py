@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import cast, Date, func, and_
 from sqlalchemy.orm import Session
 
-from app.auth import require_api_key
+from app.auth import limiter, require_api_key
 from app.database import get_db
 from app.models import ApiKey, Budget, Cost
 from app.schemas import (
@@ -22,7 +22,9 @@ router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=DashboardStatsResponse)
+@limiter.limit("100/minute")
 def dashboard_stats(
+    request: Request,
     period: Literal["daily", "monthly", "all"] = Query("daily"),
     days: int = Query(30, ge=1, le=365),
     recent_limit: int = Query(10, ge=1, le=100),
