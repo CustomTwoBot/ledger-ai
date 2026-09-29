@@ -2,11 +2,12 @@ from datetime import datetime, timedelta
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import cast, Date, func
+from sqlalchemy import cast, Date, func, and_
 from sqlalchemy.orm import Session
 
+from app.auth import require_api_key
 from app.database import get_db
-from app.models import Budget, Cost
+from app.models import ApiKey, Budget, Cost
 from app.schemas import (
     AgentBreakdown,
     CostSummaryResponse,
@@ -26,6 +27,7 @@ def dashboard_stats(
     days: int = Query(30, ge=1, le=365),
     recent_limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(require_api_key),
 ):
     now = datetime.utcnow()
 
@@ -37,7 +39,7 @@ def dashboard_stats(
     else:
         since_summary = None
 
-    base = db.query(Cost)
+    base = db.query(Cost).filter(Cost.owner_key == api_key.key)
     if since_summary:
         base = base.filter(Cost.timestamp >= since_summary)
 
@@ -71,7 +73,10 @@ def dashboard_stats(
     ]
 
     agent_rows = (
-        base.outerjoin(Budget, Budget.agent_id == Cost.agent_id)
+        base.outerjoin(
+            Budget,
+            and_(Budget.agent_id == Cost.agent_id, Budget.owner_key == api_key.key),
+        )
         .with_entities(
             Cost.agent_id,
             func.count(Cost.id).label("call_count"),
@@ -127,7 +132,7 @@ def dashboard_stats(
             cast(Cost.timestamp, Date).label("day"),
             func.sum(Cost.cost_usd).label("total_cost"),
         )
-        .filter(Cost.timestamp >= since_ts)
+        .filter(Cost.owner_key == api_key.key, Cost.timestamp >= since_ts)
         .group_by("day")
         .order_by("day")
         .all()
@@ -146,6 +151,7 @@ def dashboard_stats(
     # --- recent ---
     recent_rows = (
         db.query(Cost)
+        .filter(Cost.owner_key == api_key.key)
         .order_by(Cost.timestamp.desc())
         .limit(recent_limit)
         .all()
