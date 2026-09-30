@@ -1,9 +1,11 @@
 """
 Integration smoke tests for the ledgerai SDK.
 
-Requires the agent-cost-tracker API to be running at http://127.0.0.1:8000.
-Run with:  pytest sdk/python/test_sdk.py -v
+Requires the agent-cost-tracker API to be running at http://127.0.0.1:8000
+and a valid API key in the LEDGERAI_TEST_API_KEY environment variable.
+Run with:  LEDGERAI_TEST_API_KEY=<key> pytest sdk/python/test_sdk.py -v
 """
+import os
 import re
 import uuid
 
@@ -14,7 +16,9 @@ from ledgerai import BudgetExceededError, LedgerAnthropic
 
 LEDGER_URL = "http://127.0.0.1:8000"
 AGENT_ID = f"pytest-{uuid.uuid4().hex[:8]}"
-API_KEY = "REDACTED"
+API_KEY = os.environ.get("LEDGERAI_TEST_API_KEY", "")
+
+pytestmark = pytest.mark.skipif(not API_KEY, reason="LEDGERAI_TEST_API_KEY is not set")
 
 
 @pytest.fixture(scope="module")
