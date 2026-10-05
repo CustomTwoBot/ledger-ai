@@ -85,10 +85,6 @@ class BudgetCheckResponse(BaseModel):
     warning: Optional[Literal["near_limit", "hard_stop"]] = None
 
 
-class CreateKeyRequest(BaseModel):
-    user_id: str = Field(..., max_length=128)
-
-
 class CreateKeyResponse(BaseModel):
     key: str
     user_id: str = Field(..., max_length=128)

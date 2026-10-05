@@ -9,7 +9,6 @@ from app.auth import limiter, require_api_key
 from app.database import get_db
 from app.models import ApiKey
 from app.schemas import (
-    CreateKeyRequest,
     CreateKeyResponse,
     MeResponse,
     SignupRequest,
@@ -55,12 +54,11 @@ def me(api_key: ApiKey = Depends(require_api_key)):
 @limiter.limit("10/hour", key_func=get_remote_address)
 def create_api_key(
     request: Request,
-    payload: CreateKeyRequest,
     db: Session = Depends(get_db),
-    _: ApiKey = Depends(require_api_key),
+    api_key: ApiKey = Depends(require_api_key),
 ):
     key = secrets.token_hex(32)
-    row = ApiKey(key=key, user_id=payload.user_id, created_at=datetime.utcnow())
+    row = ApiKey(key=key, user_id=api_key.user_id, created_at=datetime.utcnow())
     db.add(row)
     db.commit()
     db.refresh(row)
