@@ -8,12 +8,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.auth import limiter
-from app.database import Base, engine
 from app.routers import costs, budgets
 from app.routers import auth as auth_router
 from app.routers import dashboard as dashboard_router
 
-Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(title="Agent Cost Tracker", version="0.1.0", docs_url=None, redoc_url=None)
 

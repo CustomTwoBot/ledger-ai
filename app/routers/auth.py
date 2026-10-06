@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import limiter, require_api_key
 from app.database import get_db
-from app.models import ApiKey
+from app.models import ApiKey, User
 from app.schemas import (
     CreateKeyResponse,
     MeResponse,
@@ -21,22 +21,27 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour", key_func=get_remote_address)
 def signup(request: Request, payload: SignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(ApiKey).filter(ApiKey.email == payload.email).first()
+    existing = db.query(User).filter(User.email == str(payload.email)).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
         )
+
+    user = User(email=str(payload.email))
+    db.add(user)
+    db.flush()  # sends the user to the database so user.id is filled in
+
     key = secrets.token_hex(32)
     row = ApiKey(
         key=key,
-        user_id=str(payload.email),
-        email=str(payload.email),
+        user_id=user.id,
+        email=user.email,
         created_at=datetime.utcnow(),
     )
     db.add(row)
     db.commit()
-    return SignupResponse(api_key=row.key, email=row.email)
+    return SignupResponse(api_key=row.key, email=user.email)
 
 
 @router.get("/me", response_model=MeResponse)

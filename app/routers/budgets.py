@@ -23,7 +23,7 @@ def set_budget(
 ):
     budget = (
         db.query(Budget)
-        .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+        .filter(Budget.agent_id == payload.agent_id, Budget.user_id == api_key.user_id)
         .with_for_update()
         .first()
     )
@@ -32,6 +32,7 @@ def set_budget(
             id=uuid.uuid4(),
             agent_id=payload.agent_id,
             owner_key=api_key.key,
+            user_id=api_key.user_id,
             daily_spent_usd=0,
             monthly_spent_usd=0,
             updated_at=datetime.utcnow(),
@@ -66,7 +67,7 @@ def check_budget(
 ):
     budget = (
         db.query(Budget)
-        .filter(Budget.agent_id == agent_id, Budget.owner_key == api_key.key)
+        .filter(Budget.agent_id == agent_id, Budget.user_id == api_key.user_id)
         .first()
     )
 

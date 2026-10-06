@@ -41,7 +41,7 @@ def dashboard_stats(
     else:
         since_summary = None
 
-    base = db.query(Cost).filter(Cost.owner_key == api_key.key)
+    base = db.query(Cost).filter(Cost.user_id == api_key.user_id)
     if since_summary:
         base = base.filter(Cost.timestamp >= since_summary)
 
@@ -77,7 +77,7 @@ def dashboard_stats(
     agent_rows = (
         base.outerjoin(
             Budget,
-            and_(Budget.agent_id == Cost.agent_id, Budget.owner_key == api_key.key),
+            and_(Budget.agent_id == Cost.agent_id, Budget.user_id == api_key.user_id),
         )
         .with_entities(
             Cost.agent_id,
@@ -134,7 +134,7 @@ def dashboard_stats(
             cast(Cost.timestamp, Date).label("day"),
             func.sum(Cost.cost_usd).label("total_cost"),
         )
-        .filter(Cost.owner_key == api_key.key, Cost.timestamp >= since_ts)
+        .filter(Cost.user_id == api_key.user_id, Cost.timestamp >= since_ts)
         .group_by("day")
         .order_by("day")
         .all()
@@ -153,7 +153,7 @@ def dashboard_stats(
     # --- recent ---
     recent_rows = (
         db.query(Cost)
-        .filter(Cost.owner_key == api_key.key)
+        .filter(Cost.user_id == api_key.user_id)
         .order_by(Cost.timestamp.desc())
         .limit(recent_limit)
         .all()

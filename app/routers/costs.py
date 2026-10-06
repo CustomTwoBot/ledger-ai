@@ -50,7 +50,7 @@ def cost_timeseries(
             cast(Cost.timestamp, Date).label("day"),
             func.sum(Cost.cost_usd).label("total_cost"),
         )
-        .filter(Cost.owner_key == api_key.key, Cost.timestamp >= since)
+        .filter(Cost.user_id == api_key.user_id, Cost.timestamp >= since)
         .group_by("day")
         .order_by("day")
         .all()
@@ -79,7 +79,7 @@ def recent_costs(
 ):
     rows = (
         db.query(Cost)
-        .filter(Cost.owner_key == api_key.key)
+        .filter(Cost.user_id == api_key.user_id)
         .order_by(Cost.timestamp.desc())
         .limit(limit)
         .all()
@@ -106,7 +106,7 @@ def cost_summary(
 ):
     since = _period_start(period)
 
-    base = db.query(Cost).filter(Cost.owner_key == api_key.key)
+    base = db.query(Cost).filter(Cost.user_id == api_key.user_id)
     if agent_id:
         base = base.filter(Cost.agent_id == agent_id)
     if since:
@@ -147,7 +147,7 @@ def cost_summary(
         agent_rows = (
             base.outerjoin(
                 Budget,
-                and_(Budget.agent_id == Cost.agent_id, Budget.owner_key == api_key.key),
+                and_(Budget.agent_id == Cost.agent_id, Budget.user_id == api_key.user_id),
             )
             .with_entities(
                 Cost.agent_id,
@@ -212,7 +212,7 @@ def _maybe_create_alert(
     budget: Budget,
     agent_id: str,
     now: datetime,
-    owner_key: str,
+    api_key: ApiKey,
 ) -> None:
     one_hour_ago = now - timedelta(hours=1)
 
@@ -221,7 +221,7 @@ def _maybe_create_alert(
             db.query(Alert)
             .filter(
                 Alert.agent_id == agent_id,
-                Alert.owner_key == owner_key,
+                Alert.user_id == api_key.user_id,
                 Alert.alert_type == alert_type,
                 Alert.sent_at >= one_hour_ago,
             )
@@ -241,12 +241,13 @@ def _maybe_create_alert(
     if (daily_exceeded or monthly_exceeded) and not already_alerted(AlertType.hard_stop):
         period = "daily" if daily_exceeded else "monthly"
         db.add(Alert(
-            agent_id=agent_id,
-            owner_key=owner_key,
-            alert_type=AlertType.hard_stop,
-            threshold_pct=100,
-            message=f"Agent {agent_id!r} has hit its {period} budget limit.",
-            sent_at=now,
+            agent_id = agent_id,
+            owner_key = api_key.key,
+            user_id = api_key.user_id,
+            alert_type = AlertType.hard_stop,
+            threshold_pct = 100,
+            message = f"Agent {agent_id!r} has hit its {period} budget limit.",
+            sent_at = now,
         ))
         return
 
@@ -264,7 +265,8 @@ def _maybe_create_alert(
         period = "daily" if daily_approaching else "monthly"
         db.add(Alert(
             agent_id=agent_id,
-            owner_key=owner_key,
+            owner_key=api_key.key,
+            user_id=api_key.user_id,
             alert_type=AlertType.approaching_limit,
             threshold_pct=settings.alert_threshold_pct,
             message=(
@@ -285,13 +287,13 @@ def log_cost(
 ):
     existing = (
         db.query(Cost)
-        .filter(Cost.request_id == payload.request_id, Cost.owner_key == api_key.key)
+        .filter(Cost.request_id == payload.request_id, Cost.user_id == api_key.user_id)
         .first()
     )
     if existing:
         budget = (
             db.query(Budget)
-            .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+            .filter(Budget.agent_id == payload.agent_id, Budget.user_id == api_key.user_id)
             .first()
         )
         return _build_log_response(float(existing.cost_usd), budget)
@@ -313,12 +315,13 @@ def log_cost(
         timestamp=now,
         request_id=payload.request_id,
         owner_key=api_key.key,
+        user_id = api_key.user_id,
     )
     db.add(cost_row)
 
     budget = (
         db.query(Budget)
-        .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+        .filter(Budget.agent_id == payload.agent_id, Budget.user_id == api_key.user_id)
         .with_for_update()
         .first()
     )
@@ -328,7 +331,7 @@ def log_cost(
         budget.daily_spent_usd = float(budget.daily_spent_usd) + cost_usd
         budget.monthly_spent_usd = float(budget.monthly_spent_usd) + cost_usd
         budget.updated_at = now
-        _maybe_create_alert(db, budget, payload.agent_id, now, api_key.key)
+        _maybe_create_alert(db, budget, payload.agent_id, now, api_key)
 
     try:
         db.commit()
@@ -336,12 +339,12 @@ def log_cost(
         db.rollback()
         existing = (
             db.query(Cost)
-            .filter(Cost.request_id == payload.request_id, Cost.owner_key == api_key.key)
+            .filter(Cost.request_id == payload.request_id, Cost.user_id == api_key.user_id)
             .first()
         )
         budget = (
             db.query(Budget)
-            .filter(Budget.agent_id == payload.agent_id, Budget.owner_key == api_key.key)
+            .filter(Budget.agent_id == payload.agent_id, Budget.user_id == api_key.user_id)
             .first()
         )
         return _build_log_response(float(existing.cost_usd), budget)

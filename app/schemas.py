@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field
+from uuid import UUID
 
 
 class CostLogRequest(BaseModel):
@@ -87,7 +88,7 @@ class BudgetCheckResponse(BaseModel):
 
 class CreateKeyResponse(BaseModel):
     key: str
-    user_id: str = Field(..., max_length=128)
+    user_id: UUID
     created_at: datetime
 
 
@@ -109,6 +110,6 @@ class SignupResponse(BaseModel):
 class MeResponse(BaseModel):
     key: str
     email: Optional[str]
-    user_id: str
+    user_id: UUID
     created_at: datetime
     is_active: bool
