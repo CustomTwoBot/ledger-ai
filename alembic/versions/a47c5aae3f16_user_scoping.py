@@ -96,7 +96,8 @@ def upgrade() -> None:
         raise RuntimeError(f"{dupes} agents have more than one budget for the same user; merge them first")
 
     # Budgets: one per agent per user (was one per agent per key)
-    op.drop_constraint("uq_budget_agent_owner", "budgets", type_="unique")
+    op.execute("ALTER TABLE budgets DROP CONSTRAINT IF EXISTS uq_budget_agent_owner")
+    op.execute("DROP INDEX IF EXISTS uq_budget_agent_owner")
     op.create_unique_constraint("uq_budget_agent_user", "budgets", ["agent_id", "user_id"])
 
     # Indexes for fast per-user lookups
